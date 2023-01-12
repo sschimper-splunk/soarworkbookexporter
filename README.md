@@ -1,9 +1,17 @@
-# Splunk> Phantom
+**SOAR Workbook Exporter**
 
-Welcome to the open-source repository for Splunk> Phantom's soarworkbookexporter App.
+**Integration**
+The app does not integrate with any external service, it merely provides actions to generate and store files containing information about SOAR tasks associated with a container.
 
-Please have a look at our [Contributing Guide](https://github.com/Splunk-SOAR-Apps/.github/blob/main/.github/CONTRIBUTING.md) if you are interested in contributing, raising issues, or learning more about open-source Phantom apps.
+**About**
+The app provides actions to create .json, .yaml, and .pdf files containing workbook information in the following format:
+```
+<h2> Phase
+<h3> Task
+<standard> Description
+<bold> Actions ... <standard> Action Name
+<Bold> Playbook ... <standard> Playbook Name
+```
+PDF and YAML files are stored in the vault associated with the container. The cleaned json file is added to the SOAR action result. 
+The user needs to provide a container ID, and can leave an additional comment.
 
-## Legal and License
-
-This Phantom App is licensed under the Apache 2.0 license. Please see our [Contributing Guide](https://github.com/Splunk-SOAR-Apps/.github/blob/main/.github/CONTRIBUTING.md#legal-notice) for further details.
