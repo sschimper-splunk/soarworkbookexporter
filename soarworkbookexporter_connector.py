@@ -7,24 +7,21 @@
 # Python 3 Compatibility imports
 from __future__ import print_function, unicode_literals
 
+import json
+import os
+import time
+
 # Phantom App imports
 import phantom.app as phantom
-from phantom.base_connector import BaseConnector
-from phantom.action_result import ActionResult
 import phantom.rules as phantom_rules
-from phantom import vault
-
-# Usage of the consts file is recommended
-from soarworkbookexporter_consts import *
-import os
-import re
 import requests
-import json
 import yaml
-import time
-from pdf_exporter import PDF
 from bs4 import BeautifulSoup
-import time
+from phantom import vault
+from phantom.action_result import ActionResult
+from phantom.base_connector import BaseConnector
+
+from pdf_exporter import PDF
 
 
 class RetVal(tuple):
@@ -192,7 +189,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     # formats json according to described format
-    def reformat_dict(self, response_json, comment):
+    def _reformat_dict(self, response_json, comment):
         data = {"Comment": comment, "Phases": {}}
         data_phases = data["Phases"]
 
@@ -221,7 +218,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         return data
 
     # Creates and returns PDF document
-    def get_pdf(self, phases_dict):
+    def _get_pdf(self, phases_dict):
         pdf = PDF()
         pdf.add_page()
         pdf.write_title("Export_as_PDF Summary")
@@ -241,7 +238,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         return pdf
 
     # saves file contents to the container vault
-    def save_to_vault(self, c_id, data, is_pdf):
+    def _save_to_vault(self, c_id, data, is_pdf):
         filename_no_extension = f"wb_{c_id}_{time.strftime('%Y%m%d-%H%M%S')}"
         filename = None
 
@@ -270,16 +267,8 @@ class SoarWorkbookExporterConnector(BaseConnector):
 
         return message
 
-    # Updates summary
-    def update_summary(self, action_result, data):
-        # Add the response into the data section
-        action_result.add_data(data)
-
-        # Add a dictionary that is made up of the most important values from data into the summary
-        summary = action_result.update_summary({})
-
     # Get workbook info via Splunk REST API call, format it, and return it
-    def get_workbook_info(self, container_id, comment, action_result):
+    def _get_workbook_info(self, container_id, comment, action_result):
         self.save_progress(
             "Connecting to endpoint for retrieving workbook information."
         )
@@ -301,7 +290,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
                 "API Response is empty. Is a workbook associated with the Container?",
             )
 
-        formatted_response = self.reformat_dict(response, comment)
+        formatted_response = self._reformat_dict(response, comment)
 
         return formatted_response, action_result
 
@@ -318,7 +307,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         _user_comment = param.get("comment", "")
 
         # make rest call
-        response_dict, action_result = self.get_workbook_info(
+        response_dict, action_result = self._get_workbook_info(
             _filter_container_id, _user_comment, action_result
         )
 
@@ -351,7 +340,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         _user_comment = param.get("comment", "")
 
         # make rest call
-        response_dict, action_result = self.get_workbook_info(
+        response_dict, action_result = self._get_workbook_info(
             _filter_container_id, _user_comment, action_result
         )
 
@@ -361,10 +350,9 @@ class SoarWorkbookExporterConnector(BaseConnector):
         response_yaml = yaml.dump(response_json, allow_unicode=True)
 
         # save to container vault
-        vault_info = self.save_to_vault(_filter_container_id, response_yaml, False)
+        save_to_vault_message = self._save_to_vault(_filter_container_id, response_yaml, False)
 
-        # self.update_summary(action_result, response_yaml)
-        self.update_summary(action_result, vault_info)
+        action_result.add_data({"vault_info": save_to_vault_message})
         self.save_progress("Yaml Export Action completed sucessfully!")
         return action_result.set_status(phantom.APP_SUCCESS)
 
@@ -381,14 +369,17 @@ class SoarWorkbookExporterConnector(BaseConnector):
         _user_comment = param.get("comment", "")
 
         # make rest call
-        response_dict, action_result = self.get_workbook_info(
+        response_dict, action_result = self._get_workbook_info(
             _filter_container_id, _user_comment, action_result
         )
 
         # create pdf
-        pdf_file = self.get_pdf(response_dict)
+        pdf_file = self._get_pdf(response_dict)
 
-        self.save_to_vault(_filter_container_id, pdf_file, True)
+        # save to container vault
+        save_to_vault_message = self._save_to_vault(_filter_container_id, pdf_file, True)
+
+        action_result.add_data({"vault_info": save_to_vault_message})
         self.save_progress("PDF Export Action completed sucessfully!")
         return action_result.set_status(phantom.APP_SUCCESS)
 
