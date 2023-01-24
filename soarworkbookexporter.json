@@ -1,6 +1,6 @@
 {
     "appid": "220319f7-a082-4500-a45d-580e20db963a",
-    "name": "Soar Workbook Exporter",
+    "name": "SOAR Workbook Exporter",
     "description": "SOAR App that exports information regarding SOAR workbooks in Json, Yaml, and PDF, and stores the exported File in the Vault",
     "type": "information",
     "product_vendor": "Splunk",
