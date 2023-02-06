@@ -20,7 +20,7 @@
     "utctime_updated": "2023-01-12T14:47:43.387703Z",
     "package_name": "phantom_soarworkbookexporter",
     "main_module": "soarworkbookexporter_connector.py",
-    "min_phantom_version": "5.4.0",
+    "min_phantom_version": "5.2.0",
     "app_wizard_version": "1.0.0",
     "fips_compliant": false,
     "configuration": {
@@ -62,7 +62,7 @@
             "type": "investigate",
             "read_only": false,
             "parameters": {
-                "container_id": {
+                "workbook_id": {
                     "description": "Container ID",
                     "data_type": "string",
                     "required": true,
@@ -76,7 +76,7 @@
             },
             "output": [
                 {
-                    "data_path": "action_result.parameter.container_id",
+                    "data_path": "action_result.parameter.workbook_id",
                     "data_type": "string",
                     "column_name": "Container ID",
                     "column_order": 0
@@ -123,8 +123,8 @@
             "type": "investigate",
             "read_only": false,
             "parameters": {
-                "container_id": {
-                    "description": "Container ID",
+                "workbook_id": {
+                    "description": "Workbook ID",
                     "data_type": "string",
                     "required": true,
                     "order": 0
@@ -137,9 +137,9 @@
             },
             "output": [
                 {
-                    "data_path": "action_result.parameter.container_id",
+                    "data_path": "action_result.parameter.workbook_id",
                     "data_type": "string",
-                    "column_name": "Container ID",
+                    "column_name": "Workbook ID",
                     "column_order": 0
                 },
                 {
@@ -184,7 +184,7 @@
             "type": "investigate",
             "read_only": false,
             "parameters": {
-                "container_id": {
+                "workbook_id": {
                     "description": "Container ID",
                     "data_type": "string",
                     "required": true,
@@ -198,7 +198,7 @@
             },
             "output": [
                 {
-                    "data_path": "action_result.parameter.container_id",
+                    "data_path": "action_result.parameter.workbook_id",
                     "data_type": "string",
                     "column_name": "Container ID",
                     "column_order": 0
@@ -249,5 +249,10 @@
                 "input_file": "wheels/fpdf-1.7.2-py2.py3-none-any.whl"
             }
         ]
-    }
+    },
+    "directory": "soarworkbookexporter_220319f7-a082-4500-a45d-580e20db963a",
+    "version": 1,
+    "appname": "-",
+    "executable": "spawn3",
+    "disabled": false
 }

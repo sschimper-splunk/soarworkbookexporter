@@ -277,13 +277,13 @@ class SoarWorkbookExporterConnector(BaseConnector):
         return message
 
     # Get workbook info via Splunk REST API call, format it, and return it
-    def _get_workbook_info(self, container_id, comment, action_result):
+    def _get_workbook_info(self, workbook_id, comment, action_result):
         self.save_progress(
             "Connecting to endpoint for retrieving workbook information."
         )
 
         ret_val, response = self._make_rest_call(
-            f"/rest/workbook_phase?_filter_container_id={container_id}",
+            f"/rest/workbook_phase?_filter_workbook_id={workbook_id}",
             action_result,
             params=None,
             headers=None,
@@ -312,27 +312,27 @@ class SoarWorkbookExporterConnector(BaseConnector):
         # Add an action result object to self (BaseConnector) to represent the action for this param
         action_result = self.add_action_result(ActionResult(dict(param)))
 
-        _filter_container_id = param["container_id"]
+        _filter_workbook_id = param["workbook_id"]
         _user_comment = param.get("comment", "")
 
         # make rest call
         response_dict, action_result = self._get_workbook_info(
-            _filter_container_id, _user_comment, action_result
+            _filter_workbook_id, _user_comment, action_result
         )
 
         response_json_str = json.dumps(response_dict)
         response_json = json.loads(response_json_str)
 
-        """
+        # debug
         # write json file /opt/phantom/vault/tmp
         filelocation = vault.get_phantom_vault_tmp_dir()
-        filename = f"wb_{_filter_container_id}_{time.strftime('%Y%m%d-%H%M%S')}.json"
+        filename = "test_output.json"
 
         with open(os.path.join(filelocation, filename), 'w', encoding='utf-8') as f:
             json.dump(response_dict, f, ensure_ascii=False, indent=4)
-        """
+    
 
-        action_result.add_data({"json_exported": response_json})
+        # action_result.add_data({"json_exported": response_json})
         self.save_progress("Json Export Action completed sucessfully!")
         return action_result.set_status(phantom.APP_SUCCESS)
 
@@ -345,12 +345,12 @@ class SoarWorkbookExporterConnector(BaseConnector):
         # Add an action result object to self (BaseConnector) to represent the action for this param
         action_result = self.add_action_result(ActionResult(dict(param)))
 
-        _filter_container_id = param["container_id"]
+        _filter_workbook_id = param["workbook_id"]
         _user_comment = param.get("comment", "")
 
         # make rest call
         response_dict, action_result = self._get_workbook_info(
-            _filter_container_id, _user_comment, action_result
+            _filter_workbook_id, _user_comment, action_result
         )
 
         # convert to yaml
@@ -359,7 +359,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         response_yaml = yaml.dump(response_json, allow_unicode=True)
 
         # save to container vault
-        save_to_vault_message = self._save_to_vault(_filter_container_id, response_yaml, False)
+        save_to_vault_message = self._save_to_vault(_filter_workbook_id, response_yaml, False)
 
         action_result.add_data({"vault_info": save_to_vault_message})
         self.save_progress("Yaml Export Action completed sucessfully!")
@@ -374,19 +374,19 @@ class SoarWorkbookExporterConnector(BaseConnector):
         # Add an action result object to self (BaseConnector) to represent the action for this param
         action_result = self.add_action_result(ActionResult(dict(param)))
 
-        _filter_container_id = param["container_id"]
+        _filter_workbook_id = param["workbook_id"]
         _user_comment = param.get("comment", "")
 
         # make rest call
         response_dict, action_result = self._get_workbook_info(
-            _filter_container_id, _user_comment, action_result
+            _filter_workbook_id, _user_comment, action_result
         )
 
         # create pdf
         pdf_file = self._get_pdf(response_dict)
 
         # save to container vault
-        save_to_vault_message = self._save_to_vault(_filter_container_id, pdf_file, True)
+        save_to_vault_message = self._save_to_vault(_filter_workbook_id, pdf_file, True)
 
         action_result.add_data({"vault_info": save_to_vault_message})
         self.save_progress("PDF Export Action completed sucessfully!")
