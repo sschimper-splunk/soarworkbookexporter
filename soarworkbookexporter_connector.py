@@ -186,7 +186,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         self.save_progress("Connecting to endpoint")
         self.save_progress("Url is {url}".format(url=self._base_url))
         ret_val, response = self._make_rest_call(
-            "/rest/workbook_task", action_result, params=None, headers=self.api_call_header
+            "/rest/workbook_task", action_result, params=None, headers=self.auth_header
         )
 
         if phantom.is_fail(ret_val):
@@ -283,33 +283,26 @@ class SoarWorkbookExporterConnector(BaseConnector):
         )
 
         ret_val, response = self._make_rest_call(
-            f"/rest/workbook_template?_filter_id={workbook_id}",
+            f"rest/workbook_template?_filter_id={workbook_id}",
             action_result,
             params=None,
             headers=None,
         )
-        
-'''
-        url = f"{self._base_url}/rest/workbook_template?_filter_id={workbook_id}
-        response = requests.get(url=url, headers=self.api_call_header)
+
+        response = requests.get()
 
         if phantom.is_fail(ret_val):
-        # if(response.status_code != 200):
             self.save_progress("Test Connectivity Failed.")
             return action_result.set_status(phantom.APP_ERROR, "Connection Failed")
 
-        if(response["count"] == 0 and response["num_pages"] == 0):
+        if response["count"] == 0 and response["num_pages"] == 0:
             return action_result.set_status(
                 phantom.APP_ERROR,
                 "API Response is empty. Is a workbook associated with the Container?",
             )
 
-        # formatted_response = self._reformat_dict(response, comment)
-        # return formatted_response, action_result
-        return response, action_resul
-        '''
-        return None
-
+        formatted_response = self._reformat_dict(response, comment)
+        return formatted_response, action_result
 
     def _handle_export_as_json(self, param):
         # use self.save_progress(...) to send progress messages back to the platform
@@ -327,16 +320,19 @@ class SoarWorkbookExporterConnector(BaseConnector):
         response_dict, action_result = self._get_workbook_info(
             _filter_workbook_id, _user_comment, action_result
         )
-
-        if(response_dict is None):
-            return action_result.set_status(
-                phantom.APP_ERROR,
-                "API Response is empty. Is a workbook associated with the Container?",
-            )
-               
         
+        '''
         response_json_str = json.dumps(response_dict)
         response_json = json.loads(response_json_str)
+
+        # debug
+        # write json file /opt/phantom/vault/tmp
+        filelocation = vault.get_phantom_vault_tmp_dir()
+        filename = "test_output.json"
+
+        with open(os.path.join(filelocation, filename), 'w', encoding='utf-8') as f:
+            json.dump(response_dict, f, ensure_ascii=False, indent=4)
+        '''
 
         # action_result.add_data({"json_exported": response_json})
         self.save_progress("Json Export Action completed sucessfully!")
@@ -429,10 +425,10 @@ class SoarWorkbookExporterConnector(BaseConnector):
         config = self.get_config()
         self.auth_token = config.get("ph-auth-token")
         self.server = config.get("server")
-        self.api_call_header = {
+        self._base_url = f"https://{self.server}"
+        self.auth_header = {
             "ph-auth-token" : self.auth_token
         }
-        self._base_url = f"https://{self.server}"
 
         return phantom.APP_SUCCESS
 
