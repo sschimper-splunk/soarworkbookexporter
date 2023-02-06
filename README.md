@@ -13,7 +13,7 @@ The app provides actions to create .json, .yaml, and .pdf files containing workb
 <Bold> Playbook ... <standard> Playbook Name
 ```
 PDF and YAML files are stored in the vault associated with the container. The cleaned json file is added to the SOAR action result. 
-The user needs to provide a container ID, and can leave an additional comment.
+The user needs to provide a Workbook ID, and can leave an additional comment.
 
 **Security Details**
 - All three actions described above retreive workbook information via Splunk Rest API call (More information about the endpoints can be found here: https://docs.splunk.com/Documentation/SOARonprem/latest/PlatformAPI/RESTWorkbook). To perform the API request, the Python module 'requests' is used. Authentication is handled via SOAR username, SOAR password, and SOAR host IP address.

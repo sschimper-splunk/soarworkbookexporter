@@ -20,7 +20,7 @@
     "utctime_updated": "2023-01-12T14:47:43.387703Z",
     "package_name": "phantom_soarworkbookexporter",
     "main_module": "soarworkbookexporter_connector.py",
-    "min_phantom_version": "5.4.0",
+    "min_phantom_version": "5.2.0",
     "app_wizard_version": "1.0.0",
     "fips_compliant": false,
     "configuration": {
@@ -57,7 +57,7 @@
             "read_only": false,
             "parameters": {
                 "workbook_id": {
-                    "description": "Container ID",
+                    "description": "Workbook ID(s)",
                     "data_type": "string",
                     "required": true,
                     "order": 0
@@ -72,7 +72,7 @@
                 {
                     "data_path": "action_result.parameter.workbook_id",
                     "data_type": "string",
-                    "column_name": "Container ID",
+                    "column_name": "Workbook ID(s)",
                     "column_order": 0
                 },
                 {
@@ -118,7 +118,7 @@
             "read_only": false,
             "parameters": {
                 "workbook_id": {
-                    "description": "Workbook ID",
+                    "description": "Workbook ID(s)",
                     "data_type": "string",
                     "required": true,
                     "order": 0
@@ -133,7 +133,7 @@
                 {
                     "data_path": "action_result.parameter.workbook_id",
                     "data_type": "string",
-                    "column_name": "Workbook ID",
+                    "column_name": "Workbook ID(s)",
                     "column_order": 0
                 },
                 {
@@ -179,7 +179,7 @@
             "read_only": false,
             "parameters": {
                 "workbook_id": {
-                    "description": "Container ID",
+                    "description": "Workbook ID(s)",
                     "data_type": "string",
                     "required": true,
                     "order": 0
@@ -194,7 +194,7 @@
                 {
                     "data_path": "action_result.parameter.workbook_id",
                     "data_type": "string",
-                    "column_name": "Container ID",
+                    "column_name": "Workbook ID(s)",
                     "column_order": 0
                 },
                 {

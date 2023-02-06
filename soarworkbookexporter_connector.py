@@ -315,17 +315,21 @@ class SoarWorkbookExporterConnector(BaseConnector):
         _filter_workbook_id = param["workbook_id"]
         _user_comment = param.get("comment", "")
 
-        # make rest call
-        response_dict, action_result = self._get_workbook_info(
-            _filter_workbook_id, _user_comment, action_result
-        )
-        
-        response_json_str = json.dumps(response_dict)
-        response_json = json.loads(response_json_str)
+        workbook_ids = _filter_workbook_id.split(",")
+        for id in workbook_ids:
+            # make rest call
+            response_dict, action_result = self._get_workbook_info(
+                id.strip(), _user_comment, action_result
+            )
+            
+            response_json_str = json.dumps(response_dict)
+            response_json = json.loads(response_json_str)
 
-        # debug
-        with open('/opt/phantom/apps/soarworkbookexporter_220319f7-a082-4500-a45d-580e20db963a/test.json', 'w', encoding='utf-8') as f:
-            json.dump(response_json_str, f, ensure_ascii=False, indent=4)
+            # debug
+            with open(f'/opt/phantom/apps/soarworkbookexporter_220319f7-a082-4500-a45d-580e20db963a/test_{id.strip()}.json', 'w', encoding='utf-8') as f:
+                json.dump(response_json, f, ensure_ascii=False, indent=4)
+
+            self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .json file!")
 
         # action_result.add_data({"json_exported": response_json})
         self.save_progress("Json Export Action completed sucessfully!")
@@ -343,20 +347,28 @@ class SoarWorkbookExporterConnector(BaseConnector):
         _filter_workbook_id = param["workbook_id"]
         _user_comment = param.get("comment", "")
 
-        # make rest call
-        response_dict, action_result = self._get_workbook_info(
-            _filter_workbook_id, _user_comment, action_result
-        )
+        workbook_ids = _filter_workbook_id.split(",")
+        for id in workbook_ids:
+            # make rest call
+            response_dict, action_result = self._get_workbook_info(
+                id.strip(), _user_comment, action_result
+            )
 
-        # convert to yaml
-        response_json_str = json.dumps(response_dict)
-        response_json = json.loads(response_json_str)
-        response_yaml = yaml.dump(response_json, allow_unicode=True)
+            # convert to yaml
+            response_json_str = json.dumps(response_dict)
+            response_json = json.loads(response_json_str)
+            response_yaml = yaml.dump(response_json, allow_unicode=True)
 
-        # save to container vault
-        save_to_vault_message = self._save_to_vault(_filter_workbook_id, response_yaml, False)
+            # debug
+            with open(f'/opt/phantom/apps/soarworkbookexporter_220319f7-a082-4500-a45d-580e20db963a/test_{id.strip()}.yaml', 'w', encoding='utf-8') as f:
+                json.dump(response_yaml, f, ensure_ascii=False, indent=4)
 
-        action_result.add_data({"vault_info": save_to_vault_message})
+            self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .yaml file!")
+
+            # save to container vault
+            # save_to_vault_message = self._save_to_vault(_filter_workbook_id, response_yaml, False)
+
+        # action_result.add_data({"vault_info": save_to_vault_message})
         self.save_progress("Yaml Export Action completed sucessfully!")
         return action_result.set_status(phantom.APP_SUCCESS)
 
@@ -372,18 +384,24 @@ class SoarWorkbookExporterConnector(BaseConnector):
         _filter_workbook_id = param["workbook_id"]
         _user_comment = param.get("comment", "")
 
-        # make rest call
-        response_dict, action_result = self._get_workbook_info(
-            _filter_workbook_id, _user_comment, action_result
-        )
+        workbook_ids = _filter_workbook_id.split(",")
+        '''
+        for id in workbook_ids:
+            # make rest call
+            response_dict, action_result = self._get_workbook_info(
+                id.strip(), _user_comment, action_result
+            )
 
-        # create pdf
-        pdf_file = self._get_pdf(response_dict)
+            # create pdf
+            pdf_file = self._get_pdf(response_dict)
+            pdf_file.output(f"test_{id.strip()}.pdf", "F")
 
-        # save to container vault
-        save_to_vault_message = self._save_to_vault(_filter_workbook_id, pdf_file, True)
+            self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .yaml file!")
 
-        action_result.add_data({"vault_info": save_to_vault_message})
+            # save to container vault
+            # save_to_vault_message = self._save_to_vault(_filter_workbook_id, pdf_file, True)
+'''
+        # action_result.add_data({"vault_info": save_to_vault_message})
         self.save_progress("PDF Export Action completed sucessfully!")
         return action_result.set_status(phantom.APP_SUCCESS)
 
