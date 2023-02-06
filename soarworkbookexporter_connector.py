@@ -283,13 +283,11 @@ class SoarWorkbookExporterConnector(BaseConnector):
         )
 
         ret_val, response = self._make_rest_call(
-            f"rest/workbook_template?_filter_id={workbook_id}",
+            f"/rest/workbook_template?_filter_id={workbook_id}",
             action_result,
             params=None,
-            headers=None,
+            headers=self.auth_header
         )
-
-        response = requests.get()
 
         if phantom.is_fail(ret_val):
             self.save_progress("Test Connectivity Failed.")
@@ -301,8 +299,9 @@ class SoarWorkbookExporterConnector(BaseConnector):
                 "API Response is empty. Is a workbook associated with the Container?",
             )
 
-        formatted_response = self._reformat_dict(response, comment)
-        return formatted_response, action_result
+        # formatted_response = self._reformat_dict(response, comment)
+        # return formatted_response, action_result
+        return response, action_result
 
     def _handle_export_as_json(self, param):
         # use self.save_progress(...) to send progress messages back to the platform
@@ -321,18 +320,12 @@ class SoarWorkbookExporterConnector(BaseConnector):
             _filter_workbook_id, _user_comment, action_result
         )
         
-        '''
         response_json_str = json.dumps(response_dict)
         response_json = json.loads(response_json_str)
 
         # debug
-        # write json file /opt/phantom/vault/tmp
-        filelocation = vault.get_phantom_vault_tmp_dir()
-        filename = "test_output.json"
-
-        with open(os.path.join(filelocation, filename), 'w', encoding='utf-8') as f:
-            json.dump(response_dict, f, ensure_ascii=False, indent=4)
-        '''
+        with open('/opt/phantom/apps/soarworkbookexporter_220319f7-a082-4500-a45d-580e20db963a/test.json', 'w', encoding='utf-8') as f:
+            json.dump(response_json_str, f, ensure_ascii=False, indent=4)
 
         # action_result.add_data({"json_exported": response_json})
         self.save_progress("Json Export Action completed sucessfully!")
