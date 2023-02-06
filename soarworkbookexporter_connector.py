@@ -283,11 +283,13 @@ class SoarWorkbookExporterConnector(BaseConnector):
         )
 
         ret_val, response = self._make_rest_call(
-            f"/rest/workbook_phase?_filter_workbook_id={workbook_id}",
+            f"rest/workbook_template?_filter_id={workbook_id}",
             action_result,
             params=None,
             headers=None,
         )
+
+        response = requests.get()
 
         if phantom.is_fail(ret_val):
             self.save_progress("Test Connectivity Failed.")
@@ -300,7 +302,6 @@ class SoarWorkbookExporterConnector(BaseConnector):
             )
 
         formatted_response = self._reformat_dict(response, comment)
-
         return formatted_response, action_result
 
     def _handle_export_as_json(self, param):
@@ -319,7 +320,8 @@ class SoarWorkbookExporterConnector(BaseConnector):
         response_dict, action_result = self._get_workbook_info(
             _filter_workbook_id, _user_comment, action_result
         )
-
+        
+        '''
         response_json_str = json.dumps(response_dict)
         response_json = json.loads(response_json_str)
 
@@ -330,7 +332,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
 
         with open(os.path.join(filelocation, filename), 'w', encoding='utf-8') as f:
             json.dump(response_dict, f, ensure_ascii=False, indent=4)
-    
+        '''
 
         # action_result.add_data({"json_exported": response_json})
         self.save_progress("Json Export Action completed sucessfully!")
@@ -421,10 +423,9 @@ class SoarWorkbookExporterConnector(BaseConnector):
 
         # get the asset config
         config = self.get_config()
-        username = config.get("username")
-        password = config.get("password")
-        host = config.get("host")
-        self._base_url = f"https://{username}:{password}@{host}"
+        self.auth_token = config.get("ph-auth-token")
+        self.server = config.get("server")
+        self._base_url = f"https://{self.server}"
 
         return phantom.APP_SUCCESS
 
