@@ -198,7 +198,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     # formats json according to described format
-    def _reformat_dict(self, response_json, comment):
+    def _reformat_dict(self, response_json, workbook_name, comment):
         data = {"Comment": comment, "Phases": {}}
         data_phases = data["Phases"]
 
@@ -245,6 +245,59 @@ class SoarWorkbookExporterConnector(BaseConnector):
                 pdf.write_playbooks(task_properties["Playbooks"])
 
         return pdf
+
+    def _lookup_phases(self, workbook_id):
+        workbook_phases = None
+        f = None
+
+        # NIST 800-61
+        if(workbook_id == 1):
+            f = open('workbookphases/nist-800-61.json')
+            workbook_phases = json.load(f)
+        # Response Template 1
+        else if(workbook_id == 2):
+            f = open('workbookphases/response-template-1.json')
+            workbook_phases = json.load(f)
+        # Account Compromise
+        else if(workbook_id == 3):
+            f = open('workbookphases/account-compromise.json')
+            workbook_phases = json.load(f)
+        # Data Breach
+        else if(workbook_id == 4):
+            f = open('workbookphases/data-breach.json')
+            workbook_phases = json.load(f)
+        # Network Indicator Enrichment
+        else if(workbook_id == 5):
+            f = open('workbookphases/network-indicator-enrichment.json')
+            workbook_phases = json.load(f)
+        # Risk Investigation
+        else if(workbook_id == 6):
+            f = open('workbookphases/risk-investigation.json')
+            workbook_phases = json.load(f)
+        # Risk Investigation
+        else if(workbook_id == 6):
+            f = open('workbookphases/risk-investigation.json')
+            workbook_phases = json.load(f)
+        # Risk Response
+        else if(workbook_id == 7):
+            f = open('workbookphases/risk-response.json')
+            workbook_phases = json.load(f)
+        # Self-Replicating Malware
+        else if(workbook_id == 8):
+            f = open('workbookphases/self-replicating-malware.json')
+            workbook_phases = json.load(f)
+        # Suspicious Email
+        else if(workbook_id == 9):
+            f = open('workbookphases/souspicious-email.json')
+            workbook_phases = json.load(f)
+        # Vulnerability Disclosure
+        else if(workbook_id == 10):
+            f = open('workbookphases/vulnerability-disclosure.json')
+            workbook_phases = json.load(f)
+        
+        f.close()
+        return workbook_phases
+
 
     # saves file contents to the container vault
     def _save_to_vault(self, c_id, data, is_pdf):
@@ -299,9 +352,19 @@ class SoarWorkbookExporterConnector(BaseConnector):
                 "API Response is empty. Is a workbook associated with the Container?",
             )
 
-        # formatted_response = self._reformat_dict(response, comment)
-        # return formatted_response, action_result
-        return response, action_result
+        workbook_phases = self._lookup_phases(workbook_id)
+        workbook_name = response["data"][0]["name"]
+
+        if(workbook_phases is None):
+            self.save_progress("Associated Worbook Phases could not be retreived.")
+            return action_result.set_status(phantom.APP_ERROR, "Error: Associated Worbook Phases could not be retreived.")
+
+         if(workbook_name is None):
+            self.save_progress("Worbook name could not be retreived from API response.")
+            return action_result.set_status(phantom.APP_ERROR, "Error: Worbook name could not be retreived from API response.")
+
+        formatted_response = self._reformat_dict(workbook_phases, workbook_name, comment)
+        return formatted_response, action_result
 
     def _handle_export_as_json(self, param):
         # use self.save_progress(...) to send progress messages back to the platform
@@ -314,6 +377,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
 
         _filter_workbook_id = param["workbook_id"]
         _user_comment = param.get("comment", "")
+
 
         workbook_ids = _filter_workbook_id.split(",")
         for id in workbook_ids:
