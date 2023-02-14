@@ -35,15 +35,21 @@ class PDF(FPDF):
         # Line break
         self.ln(10)
 
+    def write_worbookname(self, name):
+        self.ln(10)
+        self.set_font("Arial", "U", 15)
+        self.cell(40, 10, name)
+        self.ln(10)
+
     def write_phase(self, phase):
         self.ln(10)
-        self.set_font("Arial", "B", 15)
+        self.set_font("Arial", "B", 14)
         self.cell(40, 10, phase)
         self.ln(10)
 
     def write_task_name(self, taskname):
         self.ln(5)
-        self.set_font_size(15)
+        self.set_font_size(13)
         self.set_font("Arial")
         self.cell(10)
         self.cell(40, 10, taskname)
@@ -51,7 +57,7 @@ class PDF(FPDF):
 
     def write_section(self, title, text):
         self.ln(5)
-        self.set_font("Arial", "B", 13)
+        self.set_font("Arial", "B", 12)
         self.cell(20)
         self.cell(40, 10, "- {t}:".format(t=title))
         self.ln(10)
@@ -64,7 +70,7 @@ class PDF(FPDF):
     def write_actions(self, actions):
         if not actions:
             return
-        self.set_font("Arial", "B", 13)
+        self.set_font("Arial", "B", 12)
         self.cell(20)
         self.cell(40, 10, "- Actions:")
         self.ln(7)
@@ -80,7 +86,7 @@ class PDF(FPDF):
     def write_playbooks(self, playbooks):
         if not playbooks:
             return
-        self.set_font("Arial", "B", 13)
+        self.set_font("Arial", "B", 12)
         self.cell(20)
         self.cell(40, 10, "- Playbooks:")
         self.ln(7)
