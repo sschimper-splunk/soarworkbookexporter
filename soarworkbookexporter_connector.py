@@ -452,6 +452,9 @@ class SoarWorkbookExporterConnector(BaseConnector):
         workbook_ids = _workbook_id_input.split(",")
         for id in workbook_ids:
             # check if workbook id is valid
+            if(id == ""):
+                self.save_progress(f"Workbook ID {id.strip()} is "". Skipping export as .json file.")
+                continue
             if(int(id) < 1 or int(id) > 10):
                 self.save_progress(f"Workbook ID {id.strip()} is invalid. Skipping export as .json file.")
                 continue
@@ -492,6 +495,9 @@ class SoarWorkbookExporterConnector(BaseConnector):
         workbook_ids = _workbook_id_input.split(",")
         for id in workbook_ids:
             # check if workbook id is valid
+            if(id == ""):
+                self.save_progress(f"Workbook ID {id.strip()} is "". Skipping export as .yaml file.")
+                continue
             if(int(id) < 1 or int(id) > 10):
                 self.save_progress(f"Workbook ID {id.strip()} is invalid. Skipping export as .yaml file.")
                 continue
@@ -535,8 +541,11 @@ class SoarWorkbookExporterConnector(BaseConnector):
         workbook_ids = _workbook_id_input.split(",")
         for id in workbook_ids:
             # check if workbook id is valid
+            if(id == ""):
+                self.save_progress(f"Workbook ID {id.strip()} is "". Skipping export as .pdf file.")
+                continue
             if(int(id) < 1 or int(id) > 10):
-                self.save_progress(f"Workbook ID {id.strip()} is invalid. Skipping export as .yaml file.")
+                self.save_progress(f"Workbook ID {id.strip()} is invalid. Skipping export as .pdf file.")
                 continue
 
             # make rest call
