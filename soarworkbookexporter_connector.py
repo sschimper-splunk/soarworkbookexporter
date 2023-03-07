@@ -208,11 +208,11 @@ class SoarWorkbookExporterConnector(BaseConnector):
         return data
 
     # Format imported .json file to be used for POST call that creates a new workbook
-    def _reformat_json_for_post_call(self, json_dict):
+    def _reformat_json_for_post_call(self, json_dict, action_result):
         workbook_name = json_dict.get("Workbook", None)
         workbook_phases = json_dict.get("Phases", None)
 
-        if(workbook_name is None):
+        if(workbook_name is None):  #TODO: Can we use "if not" here? Check it
             self.save_progress("Import Json: Json file is missing Workbook name.")
             return action_result.set_status(phantom.APP_ERROR, "Error: Import Json: Json file is missing Workbook name.")
 
@@ -271,20 +271,17 @@ class SoarWorkbookExporterConnector(BaseConnector):
         return True
 
     # saves file contents to the container vault
-    def _save_to_vault(self, c_id, data, is_pdf):
+    def _save_to_vault(self, c_id, data_json, file_type):
+        #TODO: Move this into the parent method
         filename_no_extension = f"wb_{c_id}_{time.strftime('%Y%m%d-%H%M%S')}"
-        filename = None
+        filename = filename_no_extension + "." + file_type
 
-        # save files temporarily to /opt/phantom/vault/tmp
-        if not is_pdf:
-            filename = filename_no_extension + ".yaml"
-            with open(
-                os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w"
-            ) as outfile:
-                yaml.dump(data, outfile, default_flow_style=False)
-        else:
-            filename = filename_no_extension + ".pdf"
-            data.output(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "F")
+        # save files temporarily to /opt/soar/vault/tmp
+        if(file_type == "yaml"):
+            with open(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w") as outfile:
+                yaml.dump(data_json, outfile, default_flow_style=False)
+        elif(file_type == "pdf"):
+            data_json.output(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "F")
 
         # add current file to vault
         success, message, vault_id = vault.vault_add(
@@ -299,6 +296,10 @@ class SoarWorkbookExporterConnector(BaseConnector):
         )
 
         return message
+
+    # retrieves contents of a file saved in the vault
+    def _retreive_from_vault(self, vault_id):
+        pass
 
     # Creates and returns PDF document
     def _get_pdf(self, data):
@@ -326,90 +327,61 @@ class SoarWorkbookExporterConnector(BaseConnector):
 
         return pdf
 
-    # Look up json file with phases and tasks associated
-    def _lookup_phases(self, workbook_id):
-        workbook_phases = None
-        dir_workbookphases = f"{os.path.dirname(os.path.realpath(__file__))}/workbookphases"
-        filename = ""
-
-        # NIST 800-61
-        if(workbook_id == "1"):
-            filename = "nist-800-61.json"
-        # Response Template 1
-        elif(workbook_id == "2"):
-            filename = "response-template-1.json"
-        # Account Compromise
-        elif(workbook_id == "3"):
-            filename = "account-compromise.json"
-        # Data Breach
-        elif(workbook_id == "4"):
-            filename = "data-breach.json"
-        # Network Indicator Enrichment
-        elif(workbook_id == "5"):
-            filename = "network-indicator-enrichment.json"
-        # Risk Investigation
-        elif(workbook_id == "6"):
-            filename = "risk-investigation.json"
-        # Risk Response
-        elif(workbook_id == "7"):
-            filename = "risk-response.json"
-        # Self-Replicating Malware
-        elif(workbook_id == "8"):
-            filename = "self-replicating-malware.json"
-        # Suspicious Email
-        elif(workbook_id == "9"):
-            filename = "suspicious-email.json"
-        # Vulnerability Disclosure
-        elif(workbook_id == "10"):
-            filename = "vulnerability-disclosure.json"
-
-        full_path = f"{dir_workbookphases}/{filename}"
-        f = open(full_path)
-        workbook_phases = json.load(f)
-        f.close()
-        
-        return workbook_phases
-
     # Get workbook info for export via Splunk REST API call, format it, and return it
     def _get_workbook_info(self, workbook_id, comment, action_result):
         self.save_progress(
             "Connecting to endpoint for retrieving workbook information."
         )
-        ret_val, response = self._make_rest_call(
-            "/rest/workbook_template?_filter_id={}".format(workbook_id), 
+
+        ret_val_wb_info, response_wb_info = self._make_rest_call(
+            f"/rest/workbook_template?_filter_id={workbook_id}",
             action_result, 
             params=None, 
             headers=self.auth_header
         )
         
-        if phantom.is_fail(ret_val):
-            self.save_progress("Test Connectivity Failed.")
-            return action_result.set_status(phantom.APP_ERROR, "Connection Failed")
+        if phantom.is_fail(ret_val_wb_info):
+            self.save_progress(f"Connectivity to Endpoint /rest/workbook_template?_filter_id={workbook_id} Failed.")
+            return action_result.set_status(phantom.APP_ERROR, f"Connectivity to Endpoint /rest/workbook_template?_filter_id={workbook_id} Failed.")
 
-        if response["count"] == 0 and response["num_pages"] == 0:
+        if response_wb_info["count"] == 0 and response_wb_info["num_pages"] == 0:
             return action_result.set_status(
                 phantom.APP_ERROR,
-                "API Response is empty. Is a workbook associated with the Container?",
+                f"API Response for /rest/workbook_template?_filter_id={workbook_id} is empty. Is a workbook associated with the specified Workbook ID?",
             )
         
         # Get name of Workbook name and description from response
         workbook_name = None
         workbook_description = None
-        if("data" in response):
-            response_data = response["data"][0]
-            workbook_name = response_data["name"]
-            workbook_description = response_data["description"]
+        if("data" in response_wb_info):
+            response_wb_info_data = response_wb_info["data"][0]
+            workbook_name = response_wb_info_data["name"]
+            workbook_description = response_wb_info_data["description"]
         if(workbook_name is None):
             self.save_progress("Worbook name could not be retreived from API response.")
-            return action_result.set_status(phantom.APP_ERROR, "Error: Worbook name could not be retreived from API response.")   
+            return action_result.set_status(phantom.APP_ERROR, f"Error: Worbook name could not be retreived from /rest/workbook_template?_filter_id={workbook_id} API response.")   
 
-        # Get associated Phases and Tasks
-        workbook_phases = self._lookup_phases(workbook_id)
-        if(workbook_phases is None):
-            self.save_progress("Associated Worbook Phases could not be retreived.")
-            return action_result.set_status(phantom.APP_ERROR, "Error: Associated Worbook Phases could not be retreived.")
+        # Retreive phases and tasks associated with Worbook
+        ret_val_wb_phases, response_wb_phases = self._make_rest_call(
+            f"/rest/workbook_phase_template?pretty=true&sort=order&order=asc&_filter_template={workbook_id}", 
+            action_result, 
+            params=None, 
+            headers=self.auth_header
+        )
+        
+        if phantom.is_fail(ret_val_wb_phases):
+            self.save_progress(f"Connectivity to Endpoint /rest/workbook_phase_template?pretty=true&sort=order&order=asc&_filter_template={workbook_id} Failed.")
+            return action_result.set_status(phantom.APP_ERROR, f"Connectivity to Endpoint /rest/workbook_phase_template?pretty=true&sort=order&order=asc&_filter_template={workbook_id} Failed.")
 
-        formatted_response = self._reformat_dict_for_export(workbook_phases, workbook_name, workbook_description, comment)
+        if response_wb_phases["count"] == 0 and response_wb_phases["num_pages"] == 0:
+            return action_result.set_status(
+                phantom.APP_ERROR,
+                f"API Response for /rest/workbook_template?_filter_id={workbook_id} is empty. Is a workbook associated with the specified Workbook ID?",
+            )
+
+        # format response according to specified format
+        formatted_response = self._reformat_dict_for_export(response_wb_phases, workbook_name, workbook_description, comment)
+        
         return formatted_response, action_result
 
     def _handle_test_connectivity(self, param):
@@ -434,8 +406,8 @@ class SoarWorkbookExporterConnector(BaseConnector):
         self.save_progress("Test Connectivity Passed")
         return action_result.set_status(phantom.APP_SUCCESS)
 
-    # Exports workbook information as a .json file 
-    def _handle_export_as_json(self, param):
+    # one function for retreiving and processing data that is called by all three 'export' functions
+    def _retreive_and_process_data(self, param, file_type):
         # use self.save_progress(...) to send progress messages back to the platform
         self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
 
@@ -448,123 +420,67 @@ class SoarWorkbookExporterConnector(BaseConnector):
         # Optional values should use the .get() function
         _user_comment = param.get('comment', '')
 
-        # for each workbook id ...
         workbook_ids = _workbook_id_input.split(",")
-        for id in workbook_ids:
+        for id in workbook_ids: #TODO: use a different name, not reserved keyword
+            # TODO: Change this to a more pythonic thing
             # check if workbook id is valid
             if(id == ""):
-                self.save_progress(f"Workbook ID {id.strip()} is "". Skipping export as .json file.")
+                self.save_progress(f"Workbook ID {id.strip()} is ''. Skipping export as {file_type} file.")
                 continue
-            if(int(id) < 1 or int(id) > 10):
-                self.save_progress(f"Workbook ID {id.strip()} is invalid. Skipping export as .json file.")
+            if(int(id) < 1):
+                self.save_progress(f"Workbook ID {id.strip()} is invalid. Skipping export as {file_type} file.")
                 continue
 
             # make rest call
             response_dict, action_result = self._get_workbook_info(
                 id.strip(), _user_comment, action_result
             )
-            
+
+            # convert response to .json object
             response_json_str = json.dumps(response_dict)
             response_json = json.loads(response_json_str)
 
-            # debug
-            # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.json', 'w', encoding='utf-8') as f:
-            #    json.dump(response_json, f, ensure_ascii=False, indent=4)
+            # if desired file format is not json, do the conversion and save to vault.
+            if(file_type == "json"):
+                # debug
+                # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
+                #    json.dump(response_json, f, ensure_ascii=False, indent=4)
 
-            self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .json file!")
-            action_result.add_data({"Information from Workbook with ID {id.strip()} exported as .json file": response_json})
+                pass # TODO action_result.add_data -> test in playbook!!! outputs in .json
+            elif(file_type == "yaml"):
+                # debug yaml
+                # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
+                #    yaml.dump(response_json, f, allow_unicode=True, sort_keys=False)
 
-        self.save_progress("Json Export Action completed sucessfully!")
+                save_to_vault_message = self._save_to_vault(id, response_json, file_type)
+            elif(file_type == "pdf"):
+                # create pdf
+                pdf_file = self._get_pdf(response_dict)
 
+                # debug pdf
+                # pdf_file.output(f"{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.pdf", "F")
+                
+                save_to_vault_message = self._save_to_vault(id, pdf_file, file_type)
+            
+            self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .{file_type} file!")
+            action_result.add_data(f"Information from Workbook with ID {id.strip()} exported as .{file_type} file!")
+
+        self.save_progress(f"{file_type} Export Action completed sucessfully!")
+        return action_result
+
+    # Exports workbook information as a .json file 
+    def _handle_export_as_json(self, param):
+        action_result = self._retreive_and_process_data(param, "json")
         return action_result.set_status(phantom.APP_SUCCESS)
 
     # Exports workbook information as a .yaml file, and save it to the vault
     def _handle_export_as_yaml(self, param):
-        # use self.save_progress(...) to send progress messages back to the platform
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
-
-        # Add an action result object to self (BaseConnector) to represent the action for this param
-        action_result = self.add_action_result(ActionResult(dict(param)))
-
-        # Required values can be accessed directly
-        _workbook_id_input = param['workbook_id']
-
-        # Optional values should use the .get() function
-        _user_comment = param.get('comment', '')
-
-        workbook_ids = _workbook_id_input.split(",")
-        for id in workbook_ids:
-            # check if workbook id is valid
-            if(id == ""):
-                self.save_progress(f"Workbook ID {id.strip()} is "". Skipping export as .yaml file.")
-                continue
-            if(int(id) < 1 or int(id) > 10):
-                self.save_progress(f"Workbook ID {id.strip()} is invalid. Skipping export as .yaml file.")
-                continue
-
-            # make rest call
-            response_dict, action_result = self._get_workbook_info(
-                id.strip(), _user_comment, action_result
-            )
-
-            # convert to yaml
-            response_json_str = json.dumps(response_dict)
-            response_json = json.loads(response_json_str)
-            response_yaml = yaml.dump(response_json, allow_unicode=True, sort_keys=False)
-
-            # debug
-            # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.yaml', 'w', encoding='utf-8') as f:
-            #    json.dump(response_yaml, f, ensure_ascii=False, indent=4)
-
-            self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .yaml file!")
-            action_result.add_data({"Information from Workbook with ID {id.strip()} exported as .yaml file!": response_yaml})
-
-            # save to container vault
-            save_to_vault_message = self._save_to_vault(_workbook_id_input, response_yaml, False)
-
-        self.save_progress("Yaml Export Action completed sucessfully!")
+        action_result = self._retreive_and_process_data(param, "yaml")
         return action_result.set_status(phantom.APP_SUCCESS)
 
     # Exports workbook information as a .pdf file, and save it to the vault
     def _handle_export_as_pdf(self, param):
-        # use self.save_progress(...) to send progress messages back to the platform
-        self.save_progress(
-            "In action handler for: {0}".format(self.get_action_identifier())
-        )
-
-        # Add an action result object to self (BaseConnector) to represent the action for this param
-        action_result = self.add_action_result(ActionResult(dict(param)))
-
-        _workbook_id_input = param["workbook_id"]
-        _user_comment = param.get("comment", "")
-
-        workbook_ids = _workbook_id_input.split(",")
-        for id in workbook_ids:
-            # check if workbook id is valid
-            if(id == ""):
-                self.save_progress(f"Workbook ID {id.strip()} is "". Skipping export as .pdf file.")
-                continue
-            if(int(id) < 1 or int(id) > 10):
-                self.save_progress(f"Workbook ID {id.strip()} is invalid. Skipping export as .pdf file.")
-                continue
-
-            # make rest call
-            response_dict, action_result = self._get_workbook_info(
-                id.strip(), _user_comment, action_result
-            )
-
-            # create pdf
-            pdf_file = self._get_pdf(response_dict)
-
-            # debug
-            # pdf_file.output(f"{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.pdf", "F")
-            
-            # save to container vault
-            save_to_vault_message = self._save_to_vault(_workbook_id_input, pdf_file, True)
-            self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .pdf file!")
-            action_result.add_data({"vault_info": save_to_vault_message})
-
-        self.save_progress("PDF Export Action completed sucessfully!")
+        action_result = self._retreive_and_process_data(param, "pdf")
         return action_result.set_status(phantom.APP_SUCCESS)
 
     # creates a new workbook based on existing .json file
@@ -585,7 +501,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
 
         # Validate structure of json
         if not self._validate_imported_json(input_json_dict):
-            input_json_dict = self._reformat_json_for_post_call(input_json_dict)
+            input_json_dict = self._reformat_json_for_post_call(input_json_dict, action_result)
         
         # make API Post call
         response = requests.post(self._base_url+"/rest/workbook_template", headers=self.auth_header, json=input_json_dict, verify=False)

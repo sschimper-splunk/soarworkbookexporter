@@ -33,7 +33,7 @@
             "id": 0
         },
         "server": {
-            "description": "Server IP Address",
+            "description": "Server IP Address with specified Port (e.g. XXX.X.X.X:8443 for Default Port)",
             "data_type": "string",
             "required": true,
             "order": 2,
