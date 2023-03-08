@@ -177,7 +177,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
     def _reformat_dict_for_export(self, response_json, workbook_name, workbook_description, comment):
         data = {
             "Workbook" : workbook_name,
-            "Workbook Description" : workbook_description,
+            "Workbook_Description" : workbook_description,
             "Comment": comment,
             "Phases": {}
         }
@@ -266,7 +266,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         return True
 
     # retrieves contents of a file saved in the vault
-    def _get_vault_info(self, input_vault_id):
+    def _get_vault_info(self, input_vault_id, action_result):
         success, message, info = vault.vault_info(
             # container_id=self.get_container_id(),
             vault_id=input_vault_id
@@ -284,8 +284,8 @@ class SoarWorkbookExporterConnector(BaseConnector):
         pdf.add_page()
         pdf.write_title("Export_as_PDF Summary")
         pdf.write_worbookname(data["Workbook"])
-        if(data["Workbook Description"] is not None):
-            pdf.write_section("Workbook Description", data["Workbook Description"])
+        if(data["Workbook_Description"] is not None):
+            pdf.write_section("Workbook Description", data["Workbook_Description"])
         if(data["Comment"] != ""):
             pdf.write_section("Comment", data["Comment"])
 
@@ -398,19 +398,21 @@ class SoarWorkbookExporterConnector(BaseConnector):
         _user_comment = param.get('comment', '')
 
         workbook_ids = _workbook_id_input.split(",")
-        for id in workbook_ids: #TODO: use a different name, not reserved keyword
-            # TODO: Change this to a more pythonic thing
+        for wb_id in workbook_ids:
             # check if workbook id is valid
-            if(id == ""):
-                self.save_progress(f"Workbook ID {id.strip()} is ''. Skipping export as {file_type} file.")
-                continue
-            if(int(id) < 1):
-                self.save_progress(f"Workbook ID {id.strip()} is invalid. Skipping export as {file_type} file.")
-                continue
+            try:
+                if not (int(wb_id) > 0):
+                    raise ValueError
+            except ValueError:
+                self.save_progress(f"Workbook ID {wb_id.strip()} is invalid. Abort.")
+                return action_result.set_status(
+                    phantom.APP_ERROR,
+                    f"Workbook ID {wb_id.strip()} is invalid. Abort.",
+                )
 
             # make rest call
             response_dict, action_result = self._get_workbook_info(
-                id.strip(), _user_comment, action_result
+                wb_id.strip(), _user_comment, action_result
             )
 
             # convert response to .json object
@@ -423,12 +425,10 @@ class SoarWorkbookExporterConnector(BaseConnector):
                 # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
                 #    json.dump(response_json, f, ensure_ascii=False, indent=4)
 
-                # pass # TODO action_result.add_data -> test in playbook!!! outputs in .json
-                action_result.add_data({
-                    f"workbook_id_{id}" : response_json_str
-                })
+                # TODO verify if json string is needed or json object
+                action_result.add_data({ "json" : response_json_str }) # response_json_str
             else:
-                filename_no_extension = f"wb_{id}_{time.strftime('%Y%m%d-%H%M%S')}"
+                filename_no_extension = f"wb_{wb_id}_{time.strftime('%Y%m%d-%H%M%S')}"
                 filename = filename_no_extension + "." + file_type
 
                  # save files temporarily to /opt/soar/vault/tmp
@@ -457,7 +457,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
                     "vault_id" : vault_id
                 })
 
-                self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .{file_type} file!")
+                self.save_progress(f"Information from Workbook with ID {wb_id.strip()} exported as .{file_type} file!")
 
         self.save_progress(f"{file_type} Export Action completed sucessfully!")
         return action_result
@@ -489,7 +489,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         input_vault_id = param['vault_id']
 
         # Get Vault Info
-        vi_success, vi_message, vi_info = self._get_vault_info(input_vault_id)
+        vi_success, vi_message, vi_info = self._get_vault_info(input_vault_id, action_result)
 
         # Load json
         filepath = vi_info[0]["path"]

@@ -228,6 +228,13 @@
             },
             "output": [
                 {
+                    "data_path": "action_result.data.*.json",
+                    "data_type": "string",
+                    "contains": [],
+                    "column_name": "exported_json_string",
+                    "column_order": 0
+                },
+                {
                     "data_path": "action_result.parameter.workbook_id",
                     "data_type": "string",
                     "contains": [],
