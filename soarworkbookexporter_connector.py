@@ -212,14 +212,9 @@ class SoarWorkbookExporterConnector(BaseConnector):
         workbook_name = json_dict.get("Workbook", None)
         workbook_phases = json_dict.get("Phases", None)
 
-        if(workbook_name is None):  #TODO: Can we use "if not" here? Check it
-            self.save_progress("Import Json: Json file is missing Workbook name.")
-            return action_result.set_status(phantom.APP_ERROR, "Error: Import Json: Json file is missing Workbook name.")
-
-
-        if(workbook_phases is None):
-            self.save_progress("Import Json: Json file is missing Workbook phases.")
-            return action_result.set_status(phantom.APP_ERROR, "Error: Import Json: Json file is missing Workbook phases.")
+        if not workbook_name or not workbook_phases:
+            self.save_progress("Reformating Json: Json file from Vault is missing Workbook name or Workbook phases. Abort.")
+            return action_result.set_status(phantom.APP_ERROR, "Reformating Json: Json file from Vault is missing Workbook name or Workbook phases. Abort.")
 
         formatted_json = {
             "name" : workbook_name,
@@ -258,7 +253,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
             return False
         if "phases" not in json_dict:
             return False
-        
+        '''
         for key, phase in enumerate(json_dict["phases"]):
             if "name" not in phase:
                 return False
@@ -267,39 +262,21 @@ class SoarWorkbookExporterConnector(BaseConnector):
             for key, task in enumerate(phase["tasks"]):
                 if "name" not in task:
                     return False
-
+        '''
         return True
 
-    # saves file contents to the container vault
-    def _save_to_vault(self, c_id, data_json, file_type):
-        #TODO: Move this into the parent method
-        filename_no_extension = f"wb_{c_id}_{time.strftime('%Y%m%d-%H%M%S')}"
-        filename = filename_no_extension + "." + file_type
-
-        # save files temporarily to /opt/soar/vault/tmp
-        if(file_type == "yaml"):
-            with open(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w") as outfile:
-                yaml.dump(data_json, outfile, default_flow_style=False)
-        elif(file_type == "pdf"):
-            data_json.output(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "F")
-
-        # add current file to vault
-        success, message, vault_id = vault.vault_add(
-            container=c_id,
-            file_location=f"{vault.get_phantom_vault_tmp_dir()}/{filename}",
-        )
-
-        phantom_rules.debug(
-            "phantom.vault_add results: success: {}, message: {}, vault_id: {}".format(
-                success, message, vault_id
-            )
-        )
-
-        return message
-
     # retrieves contents of a file saved in the vault
-    def _retreive_from_vault(self, vault_id):
-        pass
+    def _get_vault_info(self, input_vault_id):
+        success, message, info = vault.vault_info(
+            # container_id=self.get_container_id(),
+            vault_id=input_vault_id
+        )
+
+        if not success:
+            self.save_progress("No data found for requested file via provided Vault ID.")
+            return action_result.set_status(phantom.APP_ERROR, "No data found for requested file via provided Vault ID.")
+
+        return success, message, info
 
     # Creates and returns PDF document
     def _get_pdf(self, data):
@@ -446,24 +423,41 @@ class SoarWorkbookExporterConnector(BaseConnector):
                 # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
                 #    json.dump(response_json, f, ensure_ascii=False, indent=4)
 
-                pass # TODO action_result.add_data -> test in playbook!!! outputs in .json
-            elif(file_type == "yaml"):
-                # debug yaml
-                # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
-                #    yaml.dump(response_json, f, allow_unicode=True, sort_keys=False)
+                # pass # TODO action_result.add_data -> test in playbook!!! outputs in .json
+                action_result.add_data({
+                    f"workbook_id_{id}" : response_json_str
+                })
+            else:
+                filename_no_extension = f"wb_{id}_{time.strftime('%Y%m%d-%H%M%S')}"
+                filename = filename_no_extension + "." + file_type
 
-                save_to_vault_message = self._save_to_vault(id, response_json, file_type)
-            elif(file_type == "pdf"):
-                # create pdf
-                pdf_file = self._get_pdf(response_dict)
+                 # save files temporarily to /opt/soar/vault/tmp
+                if(file_type == "yaml"):
+                    # debug yaml
+                    # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
+                    #    yaml.dump(response_json, f, allow_unicode=True, sort_keys=False)
+                    with open(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w") as outfile:
+                        yaml.dump(response_json, outfile, default_flow_style=False)
+                elif(file_type == "pdf"):
+                    pdf_file = self._get_pdf(response_dict)
+                     # debug pdf
+                    # pdf_file.output(f"{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.pdf", "F")
+                    pdf_file.output(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "F")
 
-                # debug pdf
-                # pdf_file.output(f"{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.pdf", "F")
-                
-                save_to_vault_message = self._save_to_vault(id, pdf_file, file_type)
-            
-            self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .{file_type} file!")
-            action_result.add_data(f"Information from Workbook with ID {id.strip()} exported as .{file_type} file!")
+                # add current file to vault, use ID of current container as container ID for vault_add function
+                success, message, vault_id = vault.vault_add(
+                    container=self.get_container_id(),
+                    file_location=f"{vault.get_phantom_vault_tmp_dir()}/{filename}",
+                )
+
+                action_result.add_data({
+                    "task" : f"Adding file {filename} to SOAR Vault.",
+                    "success" : success,
+                    "message" : message,
+                    "vault_id" : vault_id
+                })
+
+                self.save_progress(f"Information from Workbook with ID {id.strip()} exported as .{file_type} file!")
 
         self.save_progress(f"{file_type} Export Action completed sucessfully!")
         return action_result
@@ -492,25 +486,36 @@ class SoarWorkbookExporterConnector(BaseConnector):
         action_result = self.add_action_result(ActionResult(dict(param)))
 
         # Required values can be accessed directly
-        json_file_path = param['json_file_path']
+        input_vault_id = param['vault_id']
 
-        # Get json
-        input_file = open(json_file_path)
-        input_json_dict = json.load(input_file)
-        input_file.close()
+        # Get Vault Info
+        vi_success, vi_message, vi_info = self._get_vault_info(input_vault_id)
+
+        # Load json
+        filepath = vi_info[0]["path"]
+        with open(filepath, "r") as f_vault:
+            json_file_dict = json.load(f_vault)
+
+        action_result.add_data({
+            "task" : "Retreive file fro Vault via Vault ID",
+            "info" : vi_info,
+            "success" : vi_success,
+            "message" : vi_message,
+            "json" : json_file_dict
+        })
 
         # Validate structure of json
-        if not self._validate_imported_json(input_json_dict):
-            input_json_dict = self._reformat_json_for_post_call(input_json_dict, action_result)
+        if not self._validate_imported_json(json_file_dict):
+            json_file_dict = self._reformat_json_for_post_call(json_file_dict, action_result)
         
         # make API Post call
-        response = requests.post(self._base_url+"/rest/workbook_template", headers=self.auth_header, json=input_json_dict, verify=False)
+        response = requests.post(self._base_url+"/rest/workbook_template", headers=self.auth_header, json=json_file_dict, verify=False)
         response.raise_for_status()
         if(response.status_code != 200):
             self.save_progress(f"API Post call failed:{response.text}")
             return action_result.set_status(phantom.APP_ERROR, f"API Post call failed:{response.text}")
 
-        action_result.add_data({"Workbook created successfully": response.text})
+        action_result.add_data({f"Workbook created successfully": response.text})
         self.save_progress("Workbook created successfully")
         return action_result.set_status(phantom.APP_SUCCESS)
 
@@ -538,7 +543,6 @@ class SoarWorkbookExporterConnector(BaseConnector):
             ret_val = self._handle_test_connectivity(param)
 
         return ret_val
-        
 
     def initialize(self):
         # Load the state in initialize, use it to store data

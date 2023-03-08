@@ -12,7 +12,10 @@
     "publisher": "Splunk Community",
     "contributors": [
         {
-            "name": "Sebastian Schimper, Ricardo Moreira"
+            "name": "Sebastian Schimper"
+        },
+        {
+            "name": "Ricardo Moreira"
         }
     ],
     "license": "Copyright (c) 2023 Splunk Inc.",
@@ -270,8 +273,8 @@
             "type": "investigate",
             "read_only": false,
             "parameters": {
-                "json_file_path": {
-                    "description": "Path to .json file.",
+                "vault_id": {
+                    "description": "Vault ID assiociated with .json file in vault.",
                     "data_type": "string",
                     "required": true,
                     "primary": false,
@@ -279,7 +282,7 @@
                     "value_list": [],
                     "default": "",
                     "order": 0,
-                    "name": "json_file_path"
+                    "name": "vault_id"
                 }
             },
             "output": [
