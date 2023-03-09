@@ -278,6 +278,14 @@ class SoarWorkbookExporterConnector(BaseConnector):
 
         return success, message, info
 
+    # saves a file to the vault
+    def _save_file_to_vault(self, filename):
+        success, message, vault_id = vault.vault_add(
+            container=self.get_container_id(),
+            file_location=f"{vault.get_phantom_vault_tmp_dir()}/{filename}",
+        )
+        return success, message, vault_id
+
     # Creates and returns PDF document
     def _get_pdf(self, data):
         pdf = PDF()
@@ -410,54 +418,48 @@ class SoarWorkbookExporterConnector(BaseConnector):
                     f"Workbook ID {wb_id.strip()} is invalid. Abort.",
                 )
 
-            # make rest call
-            response_dict, action_result = self._get_workbook_info(
+            # fetch and format workbook information
+            response_json, action_result = self._get_workbook_info(
                 wb_id.strip(), _user_comment, action_result
             )
 
-            # convert response to .json object
-            response_json_str = json.dumps(response_dict)
-            response_json = json.loads(response_json_str)
-
-            # if desired file format is not json, do the conversion and save to vault.
+            # save file temporarily to /opt/soar/vault/tmp
+            filename_no_extension = f"wb_{wb_id}_{time.strftime('%Y%m%d-%H%M%S')}"
+            filename = filename_no_extension + "." + file_type
             if(file_type == "json"):
                 # debug
                 # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
                 #    json.dump(response_json, f, ensure_ascii=False, indent=4)
-
-                # TODO verify if json string is needed or json object
-                action_result.add_data({ "json" : response_json_str }) # response_json_str
-            else:
-                filename_no_extension = f"wb_{wb_id}_{time.strftime('%Y%m%d-%H%M%S')}"
-                filename = filename_no_extension + "." + file_type
-
-                 # save files temporarily to /opt/soar/vault/tmp
-                if(file_type == "yaml"):
-                    # debug yaml
-                    # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
-                    #    yaml.dump(response_json, f, allow_unicode=True, sort_keys=False)
-                    with open(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w") as outfile:
-                        yaml.dump(response_json, outfile, default_flow_style=False)
-                elif(file_type == "pdf"):
-                    pdf_file = self._get_pdf(response_dict)
-                     # debug pdf
-                    # pdf_file.output(f"{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.pdf", "F")
-                    pdf_file.output(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "F")
-
-                # add current file to vault, use ID of current container as container ID for vault_add function
-                success, message, vault_id = vault.vault_add(
-                    container=self.get_container_id(),
-                    file_location=f"{vault.get_phantom_vault_tmp_dir()}/{filename}",
-                )
-
-                action_result.add_data({
-                    "task" : f"Adding file {filename} to SOAR Vault.",
-                    "success" : success,
-                    "message" : message,
+                with open(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w") as outfile:
+                        json.dump(response_json, outfile, ensure_ascii=False, indent=4)
+                success, message, vault_id = self._save_file_to_vault(filename)
+                action_result.add_data({ 
+                    "json" : json.dumps(response_json), 
                     "vault_id" : vault_id
                 })
-
-                self.save_progress(f"Information from Workbook with ID {wb_id.strip()} exported as .{file_type} file!")
+            elif(file_type == "yaml"):
+                # debug yaml
+                # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
+                #    yaml.dump(response_json, f, allow_unicode=True, sort_keys=False)
+                with open(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w") as outfile:
+                    yaml.dump(response_json, outfile, default_flow_style=False)
+                success, message, vault_id = self._save_file_to_vault(filename)
+                action_result.add_data({ 
+                    "yaml" : yaml.dump(response_json), 
+                    "vault_id" : vault_id
+                }) 
+            elif(file_type == "pdf"):
+                pdf_file = self._get_pdf(response_json)
+                # debug pdf
+                # pdf_file.output(f"{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.pdf", "F")
+                pdf_file.output(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "F")
+                success, message, vault_id = self._save_file_to_vault(filename)
+                action_result.add_data({ 
+                    "pdf vault_add success" : success, 
+                    "vault_id" : vault_id
+                }) 
+            
+            self.save_progress(f"Information from Workbook with ID {wb_id.strip()} exported as .{file_type} file!")
 
         self.save_progress(f"{file_type} Export Action completed sucessfully!")
         return action_result
