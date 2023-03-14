@@ -343,10 +343,10 @@ class SoarWorkbookExporterConnector(BaseConnector):
             workbook_name = response_wb_info_data["name"]
             workbook_description = response_wb_info_data["description"]
         if(workbook_name is None):
-            self.save_progress("Worbook name could not be retreived from API response.")
-            return action_result.set_status(phantom.APP_ERROR, f"Error: Worbook name could not be retreived from /rest/workbook_template?_filter_id={workbook_id} API response.")   
+            self.save_progress("Worbook name could not be retrieved from API response.")
+            return action_result.set_status(phantom.APP_ERROR, f"Error: Worbook name could not be retrieved from /rest/workbook_template?_filter_id={workbook_id} API response.")   
 
-        # Retreive phases and tasks associated with Worbook
+        # retrieve phases and tasks associated with Worbook
         ret_val_wb_phases, response_wb_phases = self._make_rest_call(
             f"/rest/workbook_phase_template?pretty=true&sort=order&order=asc&_filter_template={workbook_id}", 
             action_result, 
@@ -392,7 +392,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     # one function for retreiving and processing data that is called by all three 'export' functions
-    def _retreive_and_process_data(self, param, file_type):
+    def _retrieve_and_process_data(self, param, file_type):
         # use self.save_progress(...) to send progress messages back to the platform
         self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
 
@@ -466,17 +466,17 @@ class SoarWorkbookExporterConnector(BaseConnector):
 
     # Exports workbook information as a .json file 
     def _handle_export_as_json(self, param):
-        action_result = self._retreive_and_process_data(param, "json")
+        action_result = self._retrieve_and_process_data(param, "json")
         return action_result.set_status(phantom.APP_SUCCESS)
 
     # Exports workbook information as a .yaml file, and save it to the vault
     def _handle_export_as_yaml(self, param):
-        action_result = self._retreive_and_process_data(param, "yaml")
+        action_result = self._retrieve_and_process_data(param, "yaml")
         return action_result.set_status(phantom.APP_SUCCESS)
 
     # Exports workbook information as a .pdf file, and save it to the vault
     def _handle_export_as_pdf(self, param):
-        action_result = self._retreive_and_process_data(param, "pdf")
+        action_result = self._retrieve_and_process_data(param, "pdf")
         return action_result.set_status(phantom.APP_SUCCESS)
 
     # creates a new workbook based on existing .json file
@@ -499,7 +499,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
             json_file_dict = json.load(f_vault)
 
         action_result.add_data({
-            "task" : "Retreive file fro Vault via Vault ID",
+            "task" : "retrieve file fro Vault via Vault ID",
             "info" : vi_info,
             "success" : vi_success,
             "message" : vi_message,
