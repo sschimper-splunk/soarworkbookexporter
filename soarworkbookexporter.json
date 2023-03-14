@@ -228,7 +228,7 @@
             },
             "output": [
                 {
-                    "data_path": "action_result.data.*.json",
+                    "data_path": "action_result.data.*.output",
                     "data_type": "string",
                     "contains": [],
                     "column_name": "exported_json_string",

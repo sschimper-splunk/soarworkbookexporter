@@ -174,7 +174,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
     <bold> Actions ... <standard> Action Name
     <Bold> Playbook ... <standard> Playbook Name
     '''
-    def _reformat_dict_for_export(self, response_json, workbook_name, workbook_description, comment):
+    def _reformat_dict_for_export(self, response, workbook_name, workbook_description, comment):
         data = {
             "Workbook" : workbook_name,
             "Workbook_Description" : workbook_description,
@@ -183,7 +183,7 @@ class SoarWorkbookExporterConnector(BaseConnector):
         }
         data_phases = data["Phases"]
 
-        for org_phase in response_json["data"]:
+        for org_phase in response["data"]:
             phase_name = org_phase["name"]
             data_phases[phase_name] = {}
 
@@ -326,8 +326,9 @@ class SoarWorkbookExporterConnector(BaseConnector):
         )
         
         if phantom.is_fail(ret_val_wb_info):
-            self.save_progress(f"Connectivity to Endpoint /rest/workbook_template?_filter_id={workbook_id} Failed.")
-            return action_result.set_status(phantom.APP_ERROR, f"Connectivity to Endpoint /rest/workbook_template?_filter_id={workbook_id} Failed.")
+            err_msg = f"Connectivity to Endpoint /rest/workbook_template?_filter_id={workbook_id} Failed."
+            self.save_progress(err_msg)
+            return action_result.set_status(phantom.APP_ERROR, err_msg)
 
         if response_wb_info["count"] == 0 and response_wb_info["num_pages"] == 0:
             return action_result.set_status(
@@ -377,12 +378,14 @@ class SoarWorkbookExporterConnector(BaseConnector):
         # Also typically it does not add any data into an action_result either.
         # The status and progress messages are more important.
 
-        self.save_progress("Connecting to endpoint")
-        self.save_progress("Url is {url}".format(url=self._base_url))
+        self.save_progress(f"Connecting to endpoint {self._base_url}")
+        # TODO: Why are we passing params on the next call?
         ret_val, response = self._make_rest_call(
             "/rest/workbook_task", action_result, params=None, headers=self.auth_header
         )
 
+        # TODO: Should we be more verbose so that the user would be able to understand
+        # why the connectivity test failed? Authentication, Unreachable, something else?
         if phantom.is_fail(ret_val):
             self.save_progress("Test Connectivity Failed.")
             return action_result.set_status(phantom.APP_ERROR, "Connection Failed")
@@ -400,65 +403,48 @@ class SoarWorkbookExporterConnector(BaseConnector):
         action_result = self.add_action_result(ActionResult(dict(param)))
 
         # Required values can be accessed directly
-        _workbook_id_input = param['workbook_id']
+        workbook_id_input = param['workbook_id']
 
         # Optional values should use the .get() function
-        _user_comment = param.get('comment', '')
-
-        workbook_ids = _workbook_id_input.split(",")
+        user_comment = param.get('comment', '')
+        workbook_ids = workbook_id_input.split(",")
         for wb_id in workbook_ids:
             # check if workbook id is valid
             try:
                 if not (int(wb_id) > 0):
                     raise ValueError
             except ValueError:
-                self.save_progress(f"Workbook ID {wb_id.strip()} is invalid. Abort.")
+                # TODO: If the error message is to be repeated, it may be worth doing this:
+                err_msg = f"Workbook ID {wb_id.strip()} is invalid. Abort."
+                self.save_progress(err_msg)
                 return action_result.set_status(
                     phantom.APP_ERROR,
-                    f"Workbook ID {wb_id.strip()} is invalid. Abort.",
+                    err_msg,
                 )
 
             # fetch and format workbook information
-            response_json, action_result = self._get_workbook_info(
-                wb_id.strip(), _user_comment, action_result
+            response, action_result = self._get_workbook_info(
+                wb_id.strip(), user_comment, action_result
             )
-
-            # save file temporarily to /opt/soar/vault/tmp
-            filename_no_extension = f"wb_{wb_id}_{time.strftime('%Y%m%d-%H%M%S')}"
-            filename = filename_no_extension + "." + file_type
-            if(file_type == "json"):
-                # debug
-                # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
-                #    json.dump(response_json, f, ensure_ascii=False, indent=4)
-                with open(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w") as outfile:
-                        json.dump(response_json, outfile, ensure_ascii=False, indent=4)
-                success, message, vault_id = self._save_file_to_vault(filename)
-                action_result.add_data({ 
-                    "json" : json.dumps(response_json), 
-                    "vault_id" : vault_id
-                })
-            elif(file_type == "yaml"):
-                # debug yaml
-                # with open(f'{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.{file_type}', 'w', encoding='utf-8') as f:
-                #    yaml.dump(response_json, f, allow_unicode=True, sort_keys=False)
-                with open(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w") as outfile:
-                    yaml.dump(response_json, outfile, default_flow_style=False)
-                success, message, vault_id = self._save_file_to_vault(filename)
-                action_result.add_data({ 
-                    "yaml" : yaml.dump(response_json), 
-                    "vault_id" : vault_id
-                }) 
-            elif(file_type == "pdf"):
-                pdf_file = self._get_pdf(response_json)
-                # debug pdf
-                # pdf_file.output(f"{os.path.dirname(os.path.realpath(__file__))}/test_{id.strip()}.pdf", "F")
-                pdf_file.output(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "F")
-                success, message, vault_id = self._save_file_to_vault(filename)
-                action_result.add_data({ 
-                    "pdf vault_add success" : success, 
-                    "vault_id" : vault_id
-                }) 
             
+            filename = f"wb_{wb_id}_{time.strftime('%Y%m%d-%H%M%S')}.{file_type}"
+            
+            with open(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "w") as outfile:
+                if(file_type == "json"):
+                    json.dump(response, outfile, ensure_ascii=False, indent=4)
+                    output = json.dumps(response)
+                elif(file_type == "yaml"):
+                    yaml.dump(response, outfile, default_flow_style=False)
+                    output = yaml.dump(response)
+                elif(file_type == "pdf"):
+                    pdf_file = self._get_pdf(response)
+                    pdf_file.output(os.path.join(vault.get_phantom_vault_tmp_dir(), filename), "F")
+                    output = f"PDF saved to {filename}"
+            success, message, vault_id = self._save_file_to_vault(filename)
+            action_result.add_data({ 
+                "output" : output,
+                "vault_id" : vault_id
+            })            
             self.save_progress(f"Information from Workbook with ID {wb_id.strip()} exported as .{file_type} file!")
 
         self.save_progress(f"{file_type} Export Action completed sucessfully!")
